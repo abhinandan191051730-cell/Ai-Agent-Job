@@ -1,6 +1,5 @@
 llm:
   provider: "openai"
-  api_key_env: "LLM_API_KEY"
   model: "gpt-4"
   temperature: 0.3
   max_tokens: 2000
@@ -21,3 +20,14 @@ global:
   max_jobs_per_run: 200
   headless: true
   data_dir: "./data"
+  max_captcha_per_run: 3
+  log_file: "./data/logs/agent.log"
+
+notify:
+  enabled: false
+  smtp_host: ""
+  smtp_port: 587
+  smtp_user: ""
+  smtp_pass: ""
+  from_addr: ""
+  to_addr: ""

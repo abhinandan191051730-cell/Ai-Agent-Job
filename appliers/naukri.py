@@ -1,8 +1,30 @@
 from utils.browser import BrowserManager
 from utils.delays import human_delay
 from utils.logger import get_logger
+from utils.exceptions import SelectorNotFoundError
 
 logger = get_logger("applier.naukri")
+
+APPLY_BUTTON_SELECTORS = [
+    "//*[text()='Apply']",
+    "button:has-text('Apply')",
+    "input[value='Apply']",
+    "//button[contains(text(), 'Apply')]",
+]
+
+SUCCESS_SELECTORS = [
+    "//span[contains(@class, 'apply-message') and contains(text(), 'successfully applied')]",
+    "//div[contains(@class, 'apply-status-header') and contains(@class, 'green')]",
+    "[class*='success']:has-text('applied')",
+]
+
+CAPTCHA_SELECTORS = [
+    "iframe[src*='captcha']",
+    "iframe[src*='recaptcha']",
+    "#captcha",
+    ".g-recaptcha",
+    "[data-sitekey]",
+]
 
 
 class NaukriApplier:
@@ -27,6 +49,9 @@ class NaukriApplier:
             logger.info("Naukri: applying to %s at %s", job.get("title"), job.get("company"))
             await page.goto(url, wait_until="domcontentloaded", timeout=self.NAV_TIMEOUT)
             await human_delay(3, 5)
+
+            if await self._detect_captcha(page):
+                return {"status": "captcha", "error": "CAPTCHA detected"}
 
             already_applied = await page.query_selector("#already-applied")
             if already_applied:
@@ -62,10 +87,7 @@ class NaukriApplier:
                 result["status"] = "dry_run"
                 return result
 
-            apply_btn = await page.query_selector("//*[text()='Apply']")
-            if not apply_btn:
-                apply_btn = await page.query_selector("button:has-text('Apply'), input[value='Apply']")
-
+            apply_btn = await self._find_element(page, APPLY_BUTTON_SELECTORS)
             if not apply_btn:
                 result["error"] = "No Apply button found"
                 result["status"] = "skipped"
@@ -76,18 +98,13 @@ class NaukriApplier:
 
             await self._handle_questions(page)
 
-            success = await page.query_selector("//span[contains(@class, 'apply-message') and contains(text(), 'successfully applied')]")
+            success = await self._find_element(page, SUCCESS_SELECTORS)
             if success:
                 result["status"] = "applied"
                 logger.info("Applied to %s at %s via Naukri", job.get("title"), job.get("company"))
             else:
-                apply_status = await page.query_selector("//div[contains(@class, 'apply-status-header') and contains(@class, 'green')]")
-                if apply_status:
-                    result["status"] = "applied"
-                    logger.info("Applied to %s at %s via Naukri", job.get("title"), job.get("company"))
-                else:
-                    result["error"] = "Application submission confirmation not found"
-                    result["status"] = "failed"
+                result["error"] = "Application submission confirmation not found"
+                result["status"] = "failed"
 
         except Exception as e:
             result["error"] = str(e)
@@ -131,11 +148,30 @@ class NaukriApplier:
                                 await human_delay(1, 2)
                                 continue
 
-                success = await page.query_selector(
-                    "//span[contains(@class, 'apply-message') and contains(text(), 'successfully applied')]")
+                success = await self._find_element(page, SUCCESS_SELECTORS)
                 if success:
                     break
 
             except Exception as e:
                 logger.debug("Naukri question handling: %s", e)
                 break
+
+    async def _find_element(self, page, selectors: list):
+        for sel in selectors:
+            try:
+                if sel.startswith("//"):
+                    el = await page.query_selector(sel)
+                else:
+                    el = await page.query_selector(sel)
+                if el:
+                    return el
+            except Exception:
+                continue
+        return None
+
+    async def _detect_captcha(self, page) -> bool:
+        for selector in CAPTCHA_SELECTORS:
+            el = await page.query_selector(selector)
+            if el:
+                return True
+        return False

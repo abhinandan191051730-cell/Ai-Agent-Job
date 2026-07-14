@@ -1,5 +1,6 @@
 import sqlite3
 import os
+import json
 from pathlib import Path
 from datetime import datetime, date
 from typing import Optional
@@ -74,12 +75,59 @@ class Database:
         """, (platform, today))
         self.conn.commit()
 
+    def get_platform_state(self, platform: str) -> dict:
+        cur = self.conn.execute(
+            "SELECT * FROM platform_state WHERE platform = ?", (platform,))
+        row = cur.fetchone()
+        return dict(row) if row else {"platform": platform, "captcha_count": 0, "auth_required": 0}
+
+    def set_auth_required(self, platform: str, required: bool = True):
+        self.conn.execute("""
+            INSERT INTO platform_state (platform, captcha_count, auth_required, updated_at)
+            VALUES (?, 0, ?, datetime('now'))
+            ON CONFLICT(platform) DO UPDATE SET auth_required = ?, updated_at = datetime('now')
+        """, (platform, 1 if required else 0, 1 if required else 0))
+        self.conn.commit()
+
+    def increment_captcha(self, platform: str):
+        self.conn.execute("""
+            INSERT INTO platform_state (platform, captcha_count, auth_required, updated_at)
+            VALUES (?, 1, 0, datetime('now'))
+            ON CONFLICT(platform) DO UPDATE SET captcha_count = captcha_count + 1, updated_at = datetime('now')
+        """, (platform,))
+        self.conn.commit()
+
+    def reset_platform_state(self, platform: str):
+        self.conn.execute("DELETE FROM platform_state WHERE platform = ?", (platform,))
+        self.conn.commit()
+
+    def save_run_summary(self, summary: dict):
+        self.conn.execute("""
+            INSERT INTO run_summaries (run_id, discovered, scored_above_threshold, scored_below_threshold, applied, skipped, failed, captcha_blocked, auth_required, by_platform)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            summary.get("run_id", ""),
+            summary.get("discovered", 0),
+            summary.get("scored_above_threshold", 0),
+            summary.get("scored_below_threshold", 0),
+            summary.get("applied", 0),
+            summary.get("skipped", 0),
+            summary.get("failed", 0),
+            summary.get("captcha_blocked", 0),
+            summary.get("auth_required", 0),
+            json.dumps(summary.get("by_platform", {}))
+        ))
+        self.conn.commit()
+
     def get_stats(self) -> dict:
         conn = self.connect()
         total = conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0]
         applied = conn.execute("SELECT COUNT(*) FROM applications WHERE status = 'applied'").fetchone()[0]
         failed = conn.execute("SELECT COUNT(*) FROM applications WHERE status = 'failed'").fetchone()[0]
+        captcha = conn.execute("SELECT COUNT(*) FROM applications WHERE status = 'captcha'").fetchone()[0]
+        skipped = conn.execute("SELECT COUNT(*) FROM applications WHERE status = 'skipped'").fetchone()[0]
         pending = conn.execute("SELECT COUNT(*) FROM jobs WHERE status = 'scored'").fetchone()[0]
+        auth_required = conn.execute("SELECT COUNT(*) FROM platform_state WHERE auth_required = 1").fetchone()[0]
         by_source = {}
         for row in conn.execute("SELECT source, COUNT(*) as cnt FROM jobs GROUP BY source"):
             by_source[row["source"]] = row["cnt"]
@@ -87,7 +135,10 @@ class Database:
             "total_jobs": total,
             "applied": applied,
             "failed": failed,
+            "captcha": captcha,
+            "skipped": skipped,
             "pending": pending,
+            "auth_required_platforms": auth_required,
             "by_source": by_source,
         }
 

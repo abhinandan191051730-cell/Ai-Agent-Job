@@ -42,7 +42,30 @@ CREATE TABLE IF NOT EXISTS llm_cache (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS platform_state (
+    platform TEXT PRIMARY KEY,
+    captcha_count INTEGER DEFAULT 0,
+    auth_required INTEGER DEFAULT 0,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS run_summaries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id TEXT NOT NULL,
+    run_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    discovered INTEGER DEFAULT 0,
+    scored_above_threshold INTEGER DEFAULT 0,
+    scored_below_threshold INTEGER DEFAULT 0,
+    applied INTEGER DEFAULT 0,
+    skipped INTEGER DEFAULT 0,
+    failed INTEGER DEFAULT 0,
+    captcha_blocked INTEGER DEFAULT 0,
+    auth_required INTEGER DEFAULT 0,
+    by_platform TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_jobs_hash ON jobs(unique_hash);
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
 CREATE INDEX IF NOT EXISTS idx_applications_job ON applications(job_id);
 CREATE INDEX IF NOT EXISTS idx_applications_status ON applications(status);
+CREATE INDEX IF NOT EXISTS idx_run_summaries_run ON run_summaries(run_id);
