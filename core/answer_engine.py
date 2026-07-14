@@ -29,6 +29,10 @@ class AnswerEngine:
             import google.generativeai as genai
             genai.configure(api_key=api_key)
             self._client = genai
+        elif self.provider == "zen":
+            from openai import OpenAI
+            zen_key = os.getenv("ZEN_API_KEY") or api_key
+            self._client = OpenAI(base_url="https://opencode.ai/zen/v1", api_key=zen_key)
         elif self.provider == "ollama":
             from openai import OpenAI
             base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
