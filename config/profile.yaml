@@ -1,46 +1,39 @@
-personal:
-  full_name: "Your Full Name"
-  email: "your.email@example.com"
-  phone: "+91-XXXXXXXXXX"
-  location: "Your City, Country"
-  linkedin: "https://linkedin.com/in/yourprofile"
-  github: "https://github.com/yourprofile"
-  portfolio: "https://yourportfolio.com"
-  work_authorization: "Indian Citizen"
-  current_ctc: "X LPA"
-  expected_ctc: "Y LPA"
-  notice_period: "30 days"
-
-education:
-  - degree: "B.Tech/B.E."
-    field: "Computer Science / Cybersecurity"
-    institution: "Your University"
-    year: "2024"
-    gpa: ""
-
-experience:
-  - company: "Your Company"
-    title: "Your Title"
-    period: "MM/YYYY - Present"
-    highlights:
-      - "Bullet point 1 describing achievement"
-      - "Bullet point 2 with quantifiable impact"
-
-skills:
-  - "Python"
-  - "Penetration Testing"
-  - "SOC Analysis"
-
 certifications:
-  - "CEH"
-
-target_roles:
-  - "SOC Analyst"
-  - "Security Analyst"
-  - "VAPT Analyst"
-  - "Junior Pentester"
-
+- CEH
+education:
+- degree: B.Tech/B.E.
+  field: Computer Science / Cybersecurity
+  gpa: ''
+  institution: Your University
+  year: '2024'
+experience:
+- company: Your Company
+  highlights:
+  - Bullet point 1 describing achievement
+  - Bullet point 2 with quantifiable impact
+  period: MM/YYYY - Present
+  title: Your Title
+personal:
+  current_ctc: X LPA
+  email: your.email@example.com
+  expected_ctc: Y LPA
+  full_name: Your Full Name
+  github: https://github.com/yourprofile
+  linkedin: https://linkedin.com/in/yourprofile
+  location: Your City, Country
+  notice_period: 30 days
+  phone: +91-XXXXXXXXXX
+  portfolio: https://yourportfolio.com
+  work_authorization: Indian Citizen
+resume_path: C:/path/to/your/resume.pdf
+skills:
+- Python
+- Penetration Testing
+- SOC Analysis
 target_locations:
-  - "Anywhere"
-
-resume_path: "C:/path/to/your/resume.pdf"
+- Anywhere
+target_roles:
+- SOC Analyst
+- Security Analyst
+- VAPT Analyst
+- Junior Pentester
