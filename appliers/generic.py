@@ -90,3 +90,4 @@ class GenericApplier:
         finally:
             await page.close()
         return result
+//fxgj
