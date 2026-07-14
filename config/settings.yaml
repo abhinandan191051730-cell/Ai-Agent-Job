@@ -1,0 +1,23 @@
+llm:
+  provider: "openai"
+  api_key_env: "LLM_API_KEY"
+  model: "gpt-4"
+  temperature: 0.3
+  max_tokens: 2000
+
+scoring:
+  min_score_to_apply: 65
+  min_score_auto_submit: 65
+
+rate_limits:
+  linkedin: 50
+  naukri: 50
+  instahyre: 100
+  indeed: 50
+  company_ats: 100
+
+global:
+  dry_run: false
+  max_jobs_per_run: 200
+  headless: true
+  data_dir: "./data"
