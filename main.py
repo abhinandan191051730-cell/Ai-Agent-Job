@@ -77,9 +77,10 @@ class JobAgent:
         self.scorer = Scorer(self.profile)
         self.answer_engine = AnswerEngine(self.settings, self.db)
         self.dry_run = self.settings.get("global", {}).get("dry_run", False)
+        profile_dir = self.settings.get("global", {}).get("browser_profile", None)
         self.browser = BrowserManager(
             headless=self.settings.get("global", {}).get("headless", True),
-            data_dir=self.settings.get("global", {}).get("data_dir", "./data") + "/browser_profile"
+            data_dir=profile_dir
         )
         self.appliers = {}
         self.captcha_counts = defaultdict(int)
@@ -368,6 +369,7 @@ async def main():
     parser.add_argument("--status", action="store_true", help="Show stats from database")
     parser.add_argument("--force", action="store_true", help="Override lock file")
     parser.add_argument("--platforms", nargs="+", help="Platforms to target (linkedin, naukri, instahyre, indeed)")
+    parser.add_argument("--login", nargs="+", default=None, help="Log into platforms in visible browser (linkedin, naukri, instahyre, indeed)")
     parser.add_argument("--profile", default="./config/profile.yaml", help="Path to profile YAML")
     parser.add_argument("--settings", default="./config/settings.yaml", help="Path to settings YAML")
     args = parser.parse_args()
@@ -383,6 +385,35 @@ async def main():
 
         if args.status:
             agent.print_status()
+            return
+
+        if args.login:
+            login_urls = {
+                "linkedin": "https://www.linkedin.com/login",
+                "naukri": "https://www.naukri.com/nlogin/login",
+                "instahyre": "https://www.instahyre.com/login",
+                "indeed": "https://secure.indeed.com/auth",
+            }
+            agent.browser.headless = False
+            ctx = await agent.browser.start()
+            page = await ctx.new_page()
+            paused = False
+            for platform in args.login:
+                url = login_urls.get(platform)
+                if not url:
+                    logger.warning("Unknown platform: %s", platform)
+                    continue
+                logger.info("Opening %s login page for %s — please log in manually", platform, url)
+                await page.goto(url, wait_until="domcontentloaded")
+                logger.info("Press Enter in the terminal after logging into %s...", platform)
+                import msvcrt
+                print(f"Log into {platform} in the browser window, then press Enter here...")
+                while True:
+                    if msvcrt.kbhit() and msvcrt.getch() == b'\r':
+                        break
+                    await asyncio.sleep(0.5)
+                logger.info("Proceeding to next platform...")
+            await agent.close()
             return
 
         if args.resume:

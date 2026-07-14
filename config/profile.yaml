@@ -25,7 +25,7 @@ personal:
   phone: +91-XXXXXXXXXX
   portfolio: https://yourportfolio.com
   work_authorization: Indian Citizen
-resume_path: C:/path/to/your/resume.pdf
+resume_path: test_resume.pdf
 skills:
 - Python
 - Penetration Testing

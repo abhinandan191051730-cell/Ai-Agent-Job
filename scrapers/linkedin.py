@@ -5,6 +5,7 @@ from utils.delays import human_delay
 from utils.logger import get_logger
 from utils.exceptions import SelectorNotFoundError, AuthRequiredError
 
+
 logger = get_logger("scraper.linkedin")
 
 LINKEDIN_SEARCH_URL = "https://www.linkedin.com/jobs/search/"
@@ -16,12 +17,16 @@ SELECTORS = {
         "[data-occludable-job-id]",
         ".job-card-square",
         ".result-card",
+        "[data-job-id]",
+        "li[data-entity-urn]",
+        ".scaffold-layout__list-item",
     ],
     "next_button": [
         "button[aria-label='Next']",
         ".artdeco-pagination__button--next",
         "button[aria-label='Next Page']",
         ".jobs-search-pagination__button--next",
+        "button[aria-label='Next']:not([disabled])",
     ],
     "job_title": [
         ".job-details-jobs-unified-top-card__job-title",
@@ -29,6 +34,9 @@ SELECTORS = {
         "h2.t-24",
         ".jobs-details__main-content h2",
         ".job-title",
+        "article h2",
+        "[class*='job-title'] a",
+        ".job-card-list__title",
     ],
     "company": [
         ".job-details-jobs-unified-top-card__company-name",
@@ -36,12 +44,16 @@ SELECTORS = {
         "a.ember-view.t-black.t-normal",
         "[data-tracking-control-name='public_jobs_company_name']",
         ".job-card-container__company-name",
+        "[class*='company-name']",
+        ".job-card-list__company-name",
     ],
     "location": [
         ".job-details-jobs-unified-top-card__primary-description-container .tvm__text",
         ".jobs-unified-top-card__bullet",
         ".job-card-container__metadata-wrapper",
         "[class*='location']",
+        "[class*='job-location']",
+        ".job-card-list__metadata-item",
     ],
     "description": [
         ".jobs-description__content",
@@ -49,6 +61,8 @@ SELECTORS = {
         "#job-details",
         ".description__text",
         ".show-more-less-html__markup",
+        "[class*='job-description']",
+        ".jobs-search__job-details--container",
     ],
     "salary": [
         ".job-details-jobs-unified-top-card__job-insight--highlight",
@@ -73,21 +87,34 @@ class LinkedInScraper:
             loc = location or "India"
 
             logger.info("LinkedIn: searching '%s' in '%s'", title, loc)
+
             url = f"{LINKEDIN_SEARCH_URL}?keywords={quote_plus(title)}&location={quote_plus(loc)}&f_TPR=r604800"
             await page.goto(url, wait_until="domcontentloaded", timeout=30000)
-            await human_delay(3, 5)
+            await human_delay(4, 6)
 
-            if "login" in page.url or "authwall" in page.url:
+            page_title = await page.title()
+
+            if await self._is_auth_wall(page, page.url, page_title):
                 self.auth_required = True
                 logger.warning("LinkedIn requires login. Marking auth_required.")
                 return jobs
 
+            await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            await human_delay(2, 3)
+
             found = 0
             page_num = 0
             while found < max_results:
-                job_cards = await page.query_selector_all(", ".join(SELECTORS["job_cards"]))
+                job_cards = []
+                for sel in SELECTORS["job_cards"]:
+                    cards = await page.query_selector_all(sel)
+                    if cards:
+                        job_cards = cards
+                        break
                 if not job_cards:
-                    logger.info("LinkedIn: no job cards found on page %d", page_num)
+                    logger.info("LinkedIn: no job cards found on page %d (tried all selectors)", page_num)
+                    if page_num == 0:
+                        logger.info("LinkedIn: page title: %s", await page.title())
                     break
 
                 for card in job_cards:
@@ -184,6 +211,26 @@ class LinkedInScraper:
             if el:
                 return el
         return None
+
+    async def _is_auth_wall(self, page, url: str, title: str) -> bool:
+        if "login" in url or "authwall" in url:
+            return True
+
+        meta = await page.query_selector('meta[name="pageKey"]')
+        if meta:
+            content = await meta.get_attribute("content")
+            if content and "auth_wall" in content:
+                return True
+
+        lower_title = title.lower()
+        if "sign up" in lower_title or ("linkedin" in lower_title and "sign" in lower_title):
+            return True
+
+        sign_in = await page.query_selector('a[href*="sign-in"], a[href*="login"], a[href*="join"]')
+        if sign_in:
+            return True
+
+        return False
 
     def _get_default_title(self) -> str:
         target_roles = ["SOC Analyst", "Security Analyst", "VAPT Analyst", "Penetration Tester"]
